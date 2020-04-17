@@ -22,20 +22,26 @@ class ViewController: UIViewController {
     /*
      只要坐标集发生变化，都会触发whereYourLove
      */
-    var coordinates: [CLLocationCoordinate2D] = [] {
+    var coordinates: [CLLocationCoordinate2D] = []
+    /*
+    {
         didSet {
-            //getYourLoveCurrentPos()
             
-            UIView.animate(withDuration: 10, animations: {
-                //self.whereYourLove()
-            }, completion:  { _ in
-                self.whereYourLove()
-                let coordinatesToAppend = CLLocationCoordinate2D(latitude: 23.197633, longitude: 114.445222)
-                self.coordinates.append(coordinatesToAppend)
-                print("whereYourLove")
-            })
+            if isFirstFlag == false {
+                //getYourLoveCurrentPos()
+                
+                UIView.animate(withDuration: 10, animations: {
+                    //self.whereYourLove()
+                }, completion:  { _ in
+                    self.whereYourLove()
+                    let coordinatesToAppend = CLLocationCoordinate2D(latitude: 23.197633, longitude: 114.445222)
+                    self.coordinates.append(coordinatesToAppend)
+                    print("whereYourLove")
+                })
+            }
         }
     }
+ */
 
     
     //let map : MKMapView
@@ -44,7 +50,7 @@ class ViewController: UIViewController {
     let locationManager = CLLocationManager()
     var currentLocation:CLLocation!
     var lock = NSLock()
-    let regionRadius: CLLocationDistance = 3000
+    let regionRadius: CLLocationDistance = 30000
     var currentCoor : String = ""
     
     func createAnnotations() {
@@ -106,6 +112,27 @@ class ViewController: UIViewController {
         task.resume()
     }
     
+    var nextPointIndex : Int = 0 {
+        didSet {
+            UIView.animate(withDuration: 10, animations: {
+                //self.whereYourLove()
+                self.whereYourLove()
+            }, completion:  { _ in
+                self.showNextPoint()
+            })
+        }
+    }
+    
+    func showNextPoint() {
+        self.getYourLoveCurrentPos()
+        print("whereYourLove")
+        self.nextPointIndex += 1
+        /*
+        let coordinatesToAppend = CLLocationCoordinate2D(latitude: 23.197633, longitude: 114.445222)
+        self.coordinates.append(coordinatesToAppend)
+ */
+    }
+    
     func whereYourLove() {
         let initialLocation = CLLocation(latitude: coordinates.last!.latitude, longitude: coordinates.last!.longitude)
         mapView.delegate = self
@@ -120,7 +147,7 @@ class ViewController: UIViewController {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
         
-        getYourLoveCurrentPos()
+        //getYourLoveCurrentPos()
         /*
         let arr = currentCoor.components(separatedBy: ",")
         let coordinatesToAppend = CLLocationCoordinate2D(latitude: Double(arr[0])!, longitude: Double(arr[1])!)
@@ -128,9 +155,8 @@ class ViewController: UIViewController {
  */
         
         getInitialCoordinates()
-        
         whereYourLove()
-        
+        nextPointIndex += 1
         
         /*
         let polyLine = MKPolyline(coordinates: &coordinates, count: coordinates.count)
