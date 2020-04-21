@@ -11,89 +11,30 @@ import MapKit
 
 class ViewController: UIViewController {
     
-    @IBOutlet var mapView: MKMapView!
-    
-    var deliveryAnnotation: MKPointAnnotation = {
-        let annotation = MKPointAnnotation()
-        annotation.title = "your love"
-        return annotation
-    }()
-    
-    /*
-     只要坐标集发生变化，都会触发whereYourLove
-     */
-    var coordinates: [CLLocationCoordinate2D] = []
-    /*
-    {
-        didSet {
-            
-            if isFirstFlag == false {
-                //getYourLoveCurrentPos()
-                
-                UIView.animate(withDuration: 10, animations: {
-                    //self.whereYourLove()
-                }, completion:  { _ in
-                    self.whereYourLove()
-                    let coordinatesToAppend = CLLocationCoordinate2D(latitude: 23.197633, longitude: 114.445222)
-                    self.coordinates.append(coordinatesToAppend)
-                    print("whereYourLove")
-                })
-            }
-        }
-    }
- */
-
-    
-    //let map : MKMapView
-    //let locationManager : CLLocationManager
+     //let map : MKMapView
+     //let locationManager : CLLocationManager
     
     let locationManager = CLLocationManager()
     var currentLocation:CLLocation!
     var lock = NSLock()
-    let regionRadius: CLLocationDistance = 30000
+    let regionRadius: CLLocationDistance = 3000
     var currentCoor : String = ""
+    var coordinates: [CLLocationCoordinate2D] = []
     
-    func createAnnotations() {
-        for coordinate in coordinates {
-            let annotation  = MKPointAnnotation()
-            annotation.coordinate = CLLocationCoordinate2D(latitude: coordinate.latitude, longitude: coordinate.longitude)
-            mapView.addAnnotation(annotation)
-        }
-    }
-    func centerMapOnLocation(location: CLLocation) {
-        let coordinateRegion = MKCoordinateRegion(center: location.coordinate,
-                                                  latitudinalMeters: regionRadius,
-                                                  longitudinalMeters: regionRadius)
-      mapView.setRegion(coordinateRegion, animated: true)
-    }
+    @IBOutlet var mapView: MKMapView!
+    @IBOutlet weak var flightNoField: UITextField!
+    @IBOutlet weak var searchBtn: UIButton!
     
-    func getInitialCoordinates() {
-        var coordinatesToAppend = CLLocationCoordinate2D(latitude: 37.150726, longitude: 126.553792)
-        coordinates.append(coordinatesToAppend)
-        coordinatesToAppend = CLLocationCoordinate2D(latitude: 37.135977, longitude: 126.556111)
-        coordinates.append(coordinatesToAppend)
-        coordinatesToAppend = CLLocationCoordinate2D(latitude: 37.123489, longitude: 126.558058)
-        coordinates.append(coordinatesToAppend)
-        coordinatesToAppend = CLLocationCoordinate2D(latitude: 37.110792, longitude: 126.559992)
-        coordinates.append(coordinatesToAppend)
-        coordinatesToAppend = CLLocationCoordinate2D(latitude: 37.081878, longitude: 126.564311)
-        coordinates.append(coordinatesToAppend)
-        coordinatesToAppend = CLLocationCoordinate2D(latitude: 37.066909, longitude: 126.566532)
-        coordinates.append(coordinatesToAppend)
-        coordinatesToAppend = CLLocationCoordinate2D(latitude: 37.052741, longitude: 126.568649)
-        coordinates.append(coordinatesToAppend)
-        coordinatesToAppend = CLLocationCoordinate2D(latitude: 37.038116, longitude: 126.570798)
-        coordinates.append(coordinatesToAppend)
-        coordinatesToAppend = CLLocationCoordinate2D(latitude: 23.197678, longitude: 114.445978)
-        coordinates.append(coordinatesToAppend)
-        
+    @IBAction func searchBtnClick(_ sender: UIButton) {
+        print("btnSearchTouched")
+        self.getYourLoveCurrentPos()
     }
     
     /*
      每10秒调用一次这个方法，刷新飞机目前位置。
      */
     func getYourLoveCurrentPos() {
-        let urlStr = "http://localhost:8080/getflight?no=MDA788"
+        let urlStr = "http://122.51.134.114:8080/getflight?no=" + self.flightNoField.text!
         let url = NSURL.init(string: urlStr)
         let request : NSMutableURLRequest  = NSMutableURLRequest.init(url: url! as URL)
         request.httpMethod = "POST"
@@ -102,11 +43,22 @@ class ViewController: UIViewController {
             if(error == nil){
                 let coordinateStr = String(data: data!, encoding: String.Encoding.utf8)!
                 let coordinateArr = coordinateStr.components(separatedBy: ",")
-                let coordinatesToAppend = CLLocationCoordinate2D(latitude: Double(coordinateArr[0])!, longitude: Double(coordinateArr[1])!)
-                self.coordinates.append(coordinatesToAppend)
-                // print("接口返回的坐标是:\(str)")
+                var coordinatesToAppend : CLLocationCoordinate2D;
                 
-                //self.whereYourLove()
+                guard let response = response as? HTTPURLResponse,
+                    (200...299).contains(response.statusCode) else {
+                        print("Your love is arrived.")
+                        return
+                }
+                
+                if coordinateArr[0] == "null" || coordinateArr[1] == "null" {
+                    coordinatesToAppend = CLLocationCoordinate2D(latitude: self.coordinates.last!.latitude, longitude: self.coordinates.last!.longitude)
+                } else {
+                    coordinatesToAppend = CLLocationCoordinate2D(latitude: Double(coordinateArr[0])!, longitude: Double(coordinateArr[1])!)
+                }
+                self.coordinates.append(coordinatesToAppend)
+                self.nextPointIndex += 1
+                // print("接口返回的坐标是:\(str)")
             }
         }
         task.resume()
@@ -114,26 +66,23 @@ class ViewController: UIViewController {
     
     var nextPointIndex : Int = 0 {
         didSet {
-            UIView.animate(withDuration: 10, animations: {
-                //self.whereYourLove()
-                self.whereYourLove()
-            }, completion:  { _ in
-                self.showNextPoint()
-            })
+            UIView.animate(
+                withDuration: 10,
+                animations: {
+                    self.whereYourLove()
+                },
+                completion: {finished in
+                    print("done")
+                    self.getYourLoveCurrentPos()
+                }
+            )
         }
     }
     
-    func showNextPoint() {
-        self.getYourLoveCurrentPos()
-        print("whereYourLove")
-        self.nextPointIndex += 1
-        /*
-        let coordinatesToAppend = CLLocationCoordinate2D(latitude: 23.197633, longitude: 114.445222)
-        self.coordinates.append(coordinatesToAppend)
- */
-    }
-    
     func whereYourLove() {
+        guard !coordinates.isEmpty else {
+            return
+        }
         let initialLocation = CLLocation(latitude: coordinates.last!.latitude, longitude: coordinates.last!.longitude)
         mapView.delegate = self
         mapView.register(MKMarkerAnnotationView.self, forAnnotationViewWithReuseIdentifier: MKMapViewDefaultAnnotationViewReuseIdentifier)
@@ -143,20 +92,44 @@ class ViewController: UIViewController {
         mapView.addOverlay(polyline)
     }
     
+    var deliveryAnnotation: MKPointAnnotation = {
+        let annotation = MKPointAnnotation()
+        annotation.title = "your love"
+        
+        return annotation
+    }()
+    
+    /*
+     只要坐标集发生变化，都会触发whereYourLov1e
+     */
+    
+    func createAnnotations() {
+        for coordinate in coordinates {
+            let annotation  = MKPointAnnotation()
+            annotation.coordinate = CLLocationCoordinate2D(latitude: coordinate.latitude, longitude: coordinate.longitude)
+            mapView.addAnnotation(annotation)
+        }
+    }
+    
+    func centerMapOnLocation(location: CLLocation) {
+        let coordinateRegion = MKCoordinateRegion(center: location.coordinate,
+                                                  latitudinalMeters: regionRadius,
+                                                  longitudinalMeters: regionRadius)
+      mapView.setRegion(coordinateRegion, animated: true)
+    }
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
-        
-        //getYourLoveCurrentPos()
+
         /*
-        let arr = currentCoor.components(separatedBy: ",")
-        let coordinatesToAppend = CLLocationCoordinate2D(latitude: Double(arr[0])!, longitude: Double(arr[1])!)
-        coordinates.append(coordinatesToAppend)
+        let map = MKMapView(frame: self.view.bounds)
+        map.showsUserLocation = true
+        map.mapType = MKMapType.standard
+        self.mapView.addSubview(map)
+        mapView.delegate = self
  */
-        
-        getInitialCoordinates()
-        whereYourLove()
-        nextPointIndex += 1
+
         
         /*
         let polyLine = MKPolyline(coordinates: &coordinates, count: coordinates.count)
@@ -241,13 +214,6 @@ class ViewController: UIViewController {
         
         
         /*
-        let map = MKMapView(frame: self.view.bounds)
-        map.showsUserLocation = true
-        map.mapType = MKMapType.standard
-        self.view.addSubview(map)
- */
-
-        /*
         //let locationManager = CLLocationManager.init()
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
@@ -330,7 +296,7 @@ extension ViewController : MKMapViewDelegate {
 
     */
     func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
-            // draw the track
+        // draw the track
         let polyLineRenderer = MKPolylineRenderer(overlay: overlay)
         polyLineRenderer.strokeColor = UIColor.blue
         polyLineRenderer.lineWidth = 5.0
@@ -350,6 +316,7 @@ extension UIImage{
         self.draw(in: bounds, blendMode: CGBlendMode.destinationIn, alpha: 1.0)
         let tintedImage = UIGraphicsGetImageFromCurrentImageContext()
         UIGraphicsEndImageContext()
+        
         return tintedImage!
     }
 }
