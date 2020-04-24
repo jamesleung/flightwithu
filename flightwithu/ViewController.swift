@@ -17,7 +17,7 @@ class ViewController: UIViewController {
     let locationManager = CLLocationManager()
     var currentLocation : CLLocation!
     var lock = NSLock()
-    let regionRadius : CLLocationDistance = 30000
+    var regionRadius : CLLocationDistance = 30000
     var currentCoor : String = ""
     var coordinates : [CLLocationCoordinate2D] = []
     var flightNo : String = ""
@@ -25,13 +25,15 @@ class ViewController: UIViewController {
     var prePolyline : MKPolyline!
     var coordinatorCount : NSInteger = 0
     
+    var timer1 : Timer!
+    var lat : Double!
+    var lon : Double!
+    
     @IBOutlet var mapView: MKMapView!
     @IBOutlet weak var searchBtn: UIButton!
     @IBOutlet weak var flightNoField: UITextField!
     @IBOutlet weak var zoomInBtn: UIButton!
     @IBOutlet weak var zoomOutBtn: UIButton!
-
-    var timer1 : Timer!
     
     @IBAction func searchBtnClick(_ sender: UIButton) {
         if flightNoField.text!.isEmpty {
@@ -52,31 +54,31 @@ class ViewController: UIViewController {
     }
     
     /*
-     放大
+     map zoomout 地图缩小
      */
     @IBAction func zoomOutBtnClick(_ sender: UIButton) {
         let center : CLLocationCoordinate2D = self.mapView.region.center
         let span : MKCoordinateSpan = MKCoordinateSpan(latitudeDelta: self.mapView.region.span.latitudeDelta * 0.5, longitudeDelta: self.mapView.region.span.longitudeDelta * 0.5);
         self.mapView.setRegion(MKCoordinateRegion(center: center, span: span), animated: true)
+        regionRadius *= 0.5
     }
     
     /*
-     缩小
+     map zoomin 地图放大
      */
     @IBAction func zoomInBtnClick(_ sender: UIButton) {
         let center : CLLocationCoordinate2D = self.mapView.region.center
         let span : MKCoordinateSpan = MKCoordinateSpan(latitudeDelta: self.mapView.region.span.latitudeDelta * 2, longitudeDelta: self.mapView.region.span.longitudeDelta * 2);
         self.mapView.setRegion(MKCoordinateRegion(center: center, span: span), animated: true)
+        regionRadius *= 2
     }
     
     /*
      每10秒调用一次这个方法，刷新飞机目前位置。
      */
-    var lat : Double!
-    var lon : Double!
     
     func getYourLoveCurrentPos() {
-        let result = query(address: "http://122.51.134.114:8080/getflight?no=" + flightNo)
+        let result = query(address: "http://122.51.134.114:8080/getflight?no=" + flightNo + "&i=" + String(self.coordinates.count))
         
         if result.status == "arrived" {
             // 停止处理
@@ -98,12 +100,14 @@ class ViewController: UIViewController {
             
             lat = Double(coordinateArr[0])
             lon = Double(coordinateArr[1])
-            if !self.coordinates.contains { $0.latitude == lat && $0.longitude == lon } {
+            //if !self.coordinates.contains { $0.latitude == lat && $0.longitude == lon } {
                 //coordinatesToAppend = CLLocationCoordinate2D(latitude: lat, longitude: lon)
                 self.coordinates.append(CLLocationCoordinate2D(latitude: lat, longitude: lon))
+            /*
             } else {
                 print("already exist.")
             }
+ */
         }
         
         /*
@@ -219,10 +223,10 @@ class ViewController: UIViewController {
         if coordinatorCount == coordinates.count {
             return
         }
-        //createAnnotations()
-        /*以下注释的两句实现自动跟踪，但会卡界面*/
-        //let initialLocation = CLLocation(latitude: coordinates.last!.latitude, longitude: coordinates.last!.longitude)
-        //centerMapOnLocation(location: initialLocation)
+        createAnnotations()
+        /*以下两句实现自动跟踪*/
+        let initialLocation = CLLocation(latitude: coordinates.last!.latitude, longitude: coordinates.last!.longitude)
+        centerMapOnLocation(location: initialLocation)
         coordinatorCount = coordinates.count
         let polyline = MKPolyline(coordinates: &coordinates, count: coordinatorCount)
         if self.prePolyline != nil {
@@ -246,11 +250,18 @@ class ViewController: UIViewController {
      只要坐标集发生变化，都会触发whereYourLov1e
      */
     
+    var preAnnotation : MKPointAnnotation!
     func createAnnotations() {
         // 只在最新位置显示标注点
-        let annotation  = MKPointAnnotation()
+        let annotation = MKPointAnnotation()
+        annotation.title = flightNo
         annotation.coordinate = CLLocationCoordinate2D(latitude: coordinates.last!.latitude, longitude: coordinates.last!.longitude)
         mapView.addAnnotation(annotation)
+        // 消除前一位置标示
+        if preAnnotation != nil {
+            mapView.removeAnnotation(preAnnotation)
+        }
+        preAnnotation = annotation
         /*
         for coordinate in coordinates {
             let annotation  = MKPointAnnotation()
@@ -274,6 +285,7 @@ class ViewController: UIViewController {
         mapView.delegate = self
         mapView.register(MKMarkerAnnotationView.self, forAnnotationViewWithReuseIdentifier: MKMapViewDefaultAnnotationViewReuseIdentifier)
         
+        // Swift UIButton circle
         zoomInBtn.layer.cornerRadius = 14.0
         zoomInBtn.layer.masksToBounds = true
         zoomOutBtn.layer.cornerRadius = 14.0
@@ -441,27 +453,22 @@ extension ViewController : MKMapViewDelegate {
             return routeLineView
     }
     
+    */
     // 自定义标记的样式：
     func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-        if annotation is MKUserLocation {
-            return nil
-        }
-        
-        else {
-            let annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: "annotationView") ?? MKAnnotationView()
-            let image = UIImage(systemName: "airplane")?.maskImageWithColor(color: UIColor.blue)
-            annotationView.image = image
+        let annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: "annotationView") ?? MKAnnotationView()
+        let image = UIImage(systemName: "airplane")
+        annotationView.image = image
 //            annotationView.annotation.
-            return annotationView
-        }
+        return annotationView
     }
 
-    */
     func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
         // draw the track
         let polyLineRenderer = MKPolylineRenderer(overlay: overlay)
-        polyLineRenderer.strokeColor = UIColor.blue
-        polyLineRenderer.lineWidth = 5.0
+        polyLineRenderer.strokeColor = UIColor.systemPink
+        polyLineRenderer.lineWidth = 1.5
+        polyLineRenderer.lineJoin = .round
 
         return polyLineRenderer
     }
