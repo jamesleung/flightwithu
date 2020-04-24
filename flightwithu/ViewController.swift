@@ -15,25 +15,73 @@ class ViewController: UIViewController {
      //let locationManager : CLLocationManager
     
     let locationManager = CLLocationManager()
-    var currentLocation:CLLocation!
+    var currentLocation : CLLocation!
     var lock = NSLock()
-    let regionRadius: CLLocationDistance = 3000
+    let regionRadius : CLLocationDistance = 30000
     var currentCoor : String = ""
-    var coordinates: [CLLocationCoordinate2D] = []
+    var coordinates : [CLLocationCoordinate2D] = []
+    var flightNo : String = ""
+    
+    var prePolyline : MKPolyline!
+    var coordinatorCount : NSInteger = 0
     
     @IBOutlet var mapView: MKMapView!
-    @IBOutlet weak var flightNoField: UITextField!
     @IBOutlet weak var searchBtn: UIButton!
+    @IBOutlet weak var flightNoField: UITextField!
+    @IBOutlet weak var zoomInBtn: UIButton!
+    @IBOutlet weak var zoomOutBtn: UIButton!
     
     @IBAction func searchBtnClick(_ sender: UIButton) {
-        print("btnSearchTouched")
-        self.getYourLoveCurrentPos()
+        flightNo = flightNoField.text!
+        coordinates.removeAll()
+        self.nextPointIndex = 0
+    }
+    
+    /*
+     放大
+     */
+    @IBAction func zoomOutBtnClick(_ sender: UIButton) {
+        let center : CLLocationCoordinate2D = self.mapView.region.center
+        let span : MKCoordinateSpan = MKCoordinateSpan(latitudeDelta: self.mapView.region.span.latitudeDelta * 0.5, longitudeDelta: self.mapView.region.span.longitudeDelta * 0.5);
+        self.mapView.setRegion(MKCoordinateRegion(center: center, span: span), animated: true)
+    }
+    
+    /*
+     缩小
+     */
+    @IBAction func zoomInBtnClick(_ sender: UIButton) {
+        let center : CLLocationCoordinate2D = self.mapView.region.center
+        let span : MKCoordinateSpan = MKCoordinateSpan(latitudeDelta: self.mapView.region.span.latitudeDelta * 2, longitudeDelta: self.mapView.region.span.longitudeDelta * 2);
+        self.mapView.setRegion(MKCoordinateRegion(center: center, span: span), animated: true)
     }
     
     /*
      每10秒调用一次这个方法，刷新飞机目前位置。
      */
     func getYourLoveCurrentPos() {
+        let coordinateStr = query(address: "http://122.51.134.114:8080/getflight?no=" + flightNo)
+        guard !coordinateStr.isEmpty else {
+            print("api return null")
+            return
+        }
+        if coordinateStr == "arrived" {
+            // 停止处理
+            return
+        }
+        let coordinateArr = coordinateStr.components(separatedBy: ",")
+        var coordinatesToAppend : CLLocationCoordinate2D;
+        if coordinateArr[0] == "null" || coordinateArr[1] == "null" {
+            print("double null.")
+            guard !self.coordinates.isEmpty else {
+                return
+            }
+            coordinatesToAppend = CLLocationCoordinate2D(latitude: self.coordinates.last!.latitude, longitude: self.coordinates.last!.longitude)
+        } else {
+            coordinatesToAppend = CLLocationCoordinate2D(latitude: Double(coordinateArr[0])!, longitude: Double(coordinateArr[1])!)
+        }
+        self.coordinates.append(coordinatesToAppend)
+        
+        /*
         let urlStr = "http://122.51.134.114:8080/getflight?no=" + self.flightNoField.text!
         let url = NSURL.init(string: urlStr)
         let request : NSMutableURLRequest  = NSMutableURLRequest.init(url: url! as URL)
@@ -51,17 +99,54 @@ class ViewController: UIViewController {
                         return
                 }
                 
+                guard coordinateArr[0] != "null" && coordinateArr[1] != "null" else {
+                    print("double null.")
+                    return
+                }
+                
+                coordinatesToAppend = CLLocationCoordinate2D(latitude: Double(coordinateArr[0])!, longitude: Double(coordinateArr[1])!)
+                self.coordinates.append(coordinatesToAppend)
+                
+                /*
                 if coordinateArr[0] == "null" || coordinateArr[1] == "null" {
-                    coordinatesToAppend = CLLocationCoordinate2D(latitude: self.coordinates.last!.latitude, longitude: self.coordinates.last!.longitude)
+                    //coordinatesToAppend = CLLocationCoordinate2D(latitude: self.coordinates.last!.latitude, longitude: self.coordinates.last!.longitude)
                 } else {
                     coordinatesToAppend = CLLocationCoordinate2D(latitude: Double(coordinateArr[0])!, longitude: Double(coordinateArr[1])!)
                 }
-                self.coordinates.append(coordinatesToAppend)
-                self.nextPointIndex += 1
+ */
+                //self.coordinates.append(coordinatesToAppend)
                 // print("接口返回的坐标是:\(str)")
             }
         }
         task.resume()
+ */
+    }
+    
+    func query(address: String) -> String {
+        let url = URL(string: address)
+        let semaphore = DispatchSemaphore(value: 0)
+        
+        var result: String = ""
+        
+        let task = URLSession.shared.dataTask(with: url!) {(data, response, error) in
+            /*
+            guard let response = response as? HTTPURLResponse,
+                (200...299).contains(response.statusCode) else {
+                    return
+            }
+ */
+            let response = response as! HTTPURLResponse
+            if (200...299).contains(response.statusCode) {
+                result = String(data: data!, encoding: String.Encoding.utf8)!
+            } else {
+                result = "arrived"
+            }
+            semaphore.signal()
+        }
+        
+        task.resume()
+        semaphore.wait()
+        return result
     }
     
     var nextPointIndex : Int = 0 {
@@ -70,12 +155,11 @@ class ViewController: UIViewController {
                 withDuration: 10,
                 animations: {
                     self.whereYourLove()
-                },
-                completion: {finished in
-                    print("done")
+            },
+                completion: { _ in
                     self.getYourLoveCurrentPos()
-                }
-            )
+                    self.nextPointIndex += 1
+            })
         }
     }
     
@@ -83,13 +167,20 @@ class ViewController: UIViewController {
         guard !coordinates.isEmpty else {
             return
         }
-        let initialLocation = CLLocation(latitude: coordinates.last!.latitude, longitude: coordinates.last!.longitude)
-        mapView.delegate = self
-        mapView.register(MKMarkerAnnotationView.self, forAnnotationViewWithReuseIdentifier: MKMapViewDefaultAnnotationViewReuseIdentifier)
-        createAnnotations()
-        centerMapOnLocation(location: initialLocation)
-        let polyline = MKPolyline(coordinates: &coordinates, count: coordinates.count)
+        if coordinatorCount == coordinates.count {
+            return
+        }
+        //createAnnotations()
+        /*以下注释的两句实现自动跟踪，但会卡界面*/
+        //let initialLocation = CLLocation(latitude: coordinates.last!.latitude, longitude: coordinates.last!.longitude)
+        //centerMapOnLocation(location: initialLocation)
+        coordinatorCount = coordinates.count
+        let polyline = MKPolyline(coordinates: &coordinates, count: coordinatorCount)
+        if self.prePolyline != nil {
+            //mapView.removeOverlay(self.prePolyline)
+        }
         mapView.addOverlay(polyline)
+        self.prePolyline = polyline
     }
     
     var deliveryAnnotation: MKPointAnnotation = {
@@ -104,11 +195,17 @@ class ViewController: UIViewController {
      */
     
     func createAnnotations() {
+        // 只在最新位置显示标注点
+        let annotation  = MKPointAnnotation()
+        annotation.coordinate = CLLocationCoordinate2D(latitude: coordinates.last!.latitude, longitude: coordinates.last!.longitude)
+        mapView.addAnnotation(annotation)
+        /*
         for coordinate in coordinates {
             let annotation  = MKPointAnnotation()
             annotation.coordinate = CLLocationCoordinate2D(latitude: coordinate.latitude, longitude: coordinate.longitude)
             mapView.addAnnotation(annotation)
         }
+ */
     }
     
     func centerMapOnLocation(location: CLLocation) {
@@ -121,6 +218,19 @@ class ViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
+        
+        mapView.delegate = self
+        mapView.register(MKMarkerAnnotationView.self, forAnnotationViewWithReuseIdentifier: MKMapViewDefaultAnnotationViewReuseIdentifier)
+        
+        zoomInBtn.layer.cornerRadius = 14.0
+        zoomInBtn.layer.masksToBounds = true
+        zoomOutBtn.layer.cornerRadius = 14.0
+        zoomOutBtn.layer.masksToBounds = true
+        searchBtn.layer.cornerRadius = 6.0
+        searchBtn.layer.masksToBounds = true
+        
+        //let initialLocation = CLLocation(latitude: 21.580590, longitude: 110.826260)
+        //centerMapOnLocation(location: initialLocation)
 
         /*
         let map = MKMapView(frame: self.view.bounds)
