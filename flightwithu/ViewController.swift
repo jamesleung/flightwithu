@@ -30,11 +30,25 @@ class ViewController: UIViewController {
     @IBOutlet weak var flightNoField: UITextField!
     @IBOutlet weak var zoomInBtn: UIButton!
     @IBOutlet weak var zoomOutBtn: UIButton!
+
+    var timer1 : Timer!
     
     @IBAction func searchBtnClick(_ sender: UIButton) {
+        if flightNoField.text!.isEmpty {
+            return
+        }
+        if !flightNo.isEmpty && flightNo != flightNoField.text! {
+            timer1.invalidate()
+        }
         flightNo = flightNoField.text!
         coordinates.removeAll()
-        self.nextPointIndex = 0
+        //self.nextPointIndex = 0
+        
+        timer1 = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { (myTimer) in
+            self.getYourLoveCurrentPos()
+            self.whereYourLove()
+        
+        }
     }
     
     /*
@@ -58,16 +72,41 @@ class ViewController: UIViewController {
     /*
      每10秒调用一次这个方法，刷新飞机目前位置。
      */
+    var lat : Double!
+    var lon : Double!
+    
     func getYourLoveCurrentPos() {
-        let coordinateStr = query(address: "http://122.51.134.114:8080/getflight?no=" + flightNo)
-        guard !coordinateStr.isEmpty else {
-            print("api return null")
-            return
-        }
-        if coordinateStr == "arrived" {
+        let result = query(address: "http://122.51.134.114:8080/getflight?no=" + flightNo)
+        
+        if result.status == "arrived" {
             // 停止处理
             return
         }
+        
+        guard !result.items.isEmpty else {
+            print("api return null")
+            return
+        }
+        
+        for item in result.items {
+            let coordinateArr = item.components(separatedBy: ",")
+            //var coordinatesToAppend : CLLocationCoordinate2D;
+            if coordinateArr[0] == "null" || coordinateArr[1] == "null" {
+                print("double null.")
+                continue
+            }
+            
+            lat = Double(coordinateArr[0])
+            lon = Double(coordinateArr[1])
+            if !self.coordinates.contains { $0.latitude == lat && $0.longitude == lon } {
+                //coordinatesToAppend = CLLocationCoordinate2D(latitude: lat, longitude: lon)
+                self.coordinates.append(CLLocationCoordinate2D(latitude: lat, longitude: lon))
+            } else {
+                print("already exist.")
+            }
+        }
+        
+        /*
         let coordinateArr = coordinateStr.components(separatedBy: ",")
         var coordinatesToAppend : CLLocationCoordinate2D;
         if coordinateArr[0] == "null" || coordinateArr[1] == "null" {
@@ -80,6 +119,7 @@ class ViewController: UIViewController {
             coordinatesToAppend = CLLocationCoordinate2D(latitude: Double(coordinateArr[0])!, longitude: Double(coordinateArr[1])!)
         }
         self.coordinates.append(coordinatesToAppend)
+ */
         
         /*
         let urlStr = "http://122.51.134.114:8080/getflight?no=" + self.flightNoField.text!
@@ -122,11 +162,11 @@ class ViewController: UIViewController {
  */
     }
     
-    func query(address: String) -> String {
+    func query(address: String) -> (status : String, items : [String]) {
         let url = URL(string: address)
         let semaphore = DispatchSemaphore(value: 0)
-        
-        var result: String = ""
+        var statusV : String = ""
+        var itemsV : [String] = []
         
         let task = URLSession.shared.dataTask(with: url!) {(data, response, error) in
             /*
@@ -137,16 +177,25 @@ class ViewController: UIViewController {
  */
             let response = response as! HTTPURLResponse
             if (200...299).contains(response.statusCode) {
-                result = String(data: data!, encoding: String.Encoding.utf8)!
+                statusV = "ing" //String(data: data!, encoding: String.Encoding.utf8)!
+                itemsV = self.dataParsing(data: data!) as! [String]
             } else {
-                result = "arrived"
+                // todo 需要根据飞机海拔高度和速度都为0判断为着陆，表示已经到达
+                statusV = "arrived"
             }
             semaphore.signal()
         }
         
         task.resume()
         semaphore.wait()
-        return result
+        return (statusV, itemsV)
+    }
+    
+    func dataParsing(data:Data) -> Any {
+        /**
+         先判断是否可以解析
+         */
+        return try! JSONSerialization.jsonObject(with: data as Data, options:.mutableContainers)
     }
     
     var nextPointIndex : Int = 0 {
@@ -177,6 +226,9 @@ class ViewController: UIViewController {
         coordinatorCount = coordinates.count
         let polyline = MKPolyline(coordinates: &coordinates, count: coordinatorCount)
         if self.prePolyline != nil {
+            /*
+             注释以下这句，可以支持多航班同时跟踪
+             */
             //mapView.removeOverlay(self.prePolyline)
         }
         mapView.addOverlay(polyline)
