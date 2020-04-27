@@ -14,6 +14,8 @@ class ViewController: UIViewController {
      //let map : MKMapView
      //let locationManager : CLLocationManager
     
+    var flightDirection = CLLocationDirection()
+    
     let locationManager = CLLocationManager()
     var currentLocation : CLLocation!
     var lock = NSLock()
@@ -225,8 +227,8 @@ class ViewController: UIViewController {
         }
         createAnnotations()
         /*以下两句实现自动跟踪*/
-        let initialLocation = CLLocation(latitude: coordinates.last!.latitude, longitude: coordinates.last!.longitude)
-        centerMapOnLocation(location: initialLocation)
+        let centerLocation = CLLocation(latitude: coordinates.last!.latitude, longitude: coordinates.last!.longitude)
+        centerMapOnLocation(location: centerLocation)
         coordinatorCount = coordinates.count
         let polyline = MKPolyline(coordinates: &coordinates, count: coordinatorCount)
         if self.prePolyline != nil {
@@ -260,8 +262,15 @@ class ViewController: UIViewController {
         // 消除前一位置标示
         if preAnnotation != nil {
             mapView.removeAnnotation(preAnnotation)
+        
+            let oldLatitude : Double! = preAnnotation.coordinate.latitude
+            let oldLongitude : Double! = preAnnotation.coordinate.longitude
+            let latitude : Double! = annotation.coordinate.latitude
+            let longitude : Double! = annotation.coordinate.longitude
+            flightDirection = directionBetweenPoints(sourcePoint: MKMapPoint(CLLocationCoordinate2DMake(oldLatitude!, oldLongitude!)), destinationPoint: MKMapPoint(CLLocationCoordinate2DMake(latitude!, longitude!)))       // Get direction of flight
         }
         preAnnotation = annotation
+        
         /*
         for coordinate in coordinates {
             let annotation  = MKPointAnnotation()
@@ -276,6 +285,16 @@ class ViewController: UIViewController {
                                                   latitudinalMeters: regionRadius,
                                                   longitudinalMeters: regionRadius)
       mapView.setRegion(coordinateRegion, animated: true)
+    }
+    
+    // For rotating flight annotations:
+    func degreesToRadians(degrees: Double) -> Double { return degrees * Double.pi / 180.0 }
+    func radiansToDegrees(radians: Double) -> Double { return radians * 180.0 / Double.pi }
+    func directionBetweenPoints(sourcePoint: MKMapPoint, destinationPoint : MKMapPoint) -> CLLocationDirection {
+        let x : Double = destinationPoint.x - sourcePoint.x;
+        let y : Double = destinationPoint.y - sourcePoint.y;
+
+        return fmod(radiansToDegrees(radians: atan2(y, x)), 360.0)/* + 90.0*/;
     }
     
     override func viewDidLoad() {
@@ -459,6 +478,15 @@ extension ViewController : MKMapViewDelegate {
         let annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: "annotationView") ?? MKAnnotationView()
         let image = UIImage(systemName: "airplane")
         annotationView.image = image
+        
+
+        UIView.animate(
+            withDuration: 0,
+            animations: {
+                annotationView.transform = CGAffineTransform(rotationAngle: CGFloat(self.degreesToRadians(degrees: self.flightDirection)))
+        })
+        
+        
 //            annotationView.annotation.
         return annotationView
     }

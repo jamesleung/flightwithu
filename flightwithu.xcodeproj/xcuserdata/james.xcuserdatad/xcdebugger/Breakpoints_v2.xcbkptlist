@@ -338,6 +338,38 @@
             endingLineNumber = "214"
             landmarkName = "nextPointIndex"
             landmarkType = "24">
+            <Locations>
+               <Location
+                  uuid = "9F1A1763-725F-401B-8BB0-0BF278E65288 - 7e024c17093a1250"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "flightwithu.ViewController.nextPointIndex.didset : Swift.Int"
+                  moduleName = "flightwithu"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/james/Desktop/coding/flightwithu/flightwithu/ViewController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "214"
+                  endingLineNumber = "214"
+                  offsetFromSymbolStart = "296">
+               </Location>
+               <Location
+                  uuid = "9F1A1763-725F-401B-8BB0-0BF278E65288 - 36ce8e9e48d64232"
+                  shouldBeEnabled = "Yes"
+                  ignoreCount = "0"
+                  continueAfterRunningActions = "No"
+                  symbolName = "closure #2 (Swift.Bool) -&gt; () in flightwithu.ViewController.nextPointIndex.didset : Swift.Int"
+                  moduleName = "flightwithu"
+                  usesParentBreakpointCondition = "Yes"
+                  urlString = "file:///Users/james/Desktop/coding/flightwithu/flightwithu/ViewController.swift"
+                  startingColumnNumber = "9223372036854775807"
+                  endingColumnNumber = "9223372036854775807"
+                  startingLineNumber = "215"
+                  endingLineNumber = "215"
+                  offsetFromSymbolStart = "54">
+               </Location>
+            </Locations>
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -352,8 +384,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "220"
             endingLineNumber = "220"
-            landmarkName = "whereYourLove()"
-            landmarkType = "7">
+            landmarkName = "ViewController"
+            landmarkType = "3">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -400,8 +432,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "39"
             endingLineNumber = "39"
-            landmarkName = "searchBtnClick(_:)"
-            landmarkType = "7">
+            landmarkName = "ViewController"
+            landmarkType = "3">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -416,8 +448,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "170"
             endingLineNumber = "170"
-            landmarkName = "query(address:)"
-            landmarkType = "7">
+            landmarkName = "ViewController"
+            landmarkType = "3">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
