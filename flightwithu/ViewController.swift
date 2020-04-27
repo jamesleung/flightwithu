@@ -30,29 +30,51 @@ class ViewController: UIViewController {
     var timer1 : Timer!
     var lat : Double!
     var lon : Double!
+    var preAnnotation : MKPointAnnotation!
+    
+    var flightIconSize : NSInteger = 35
     
     @IBOutlet var mapView: MKMapView!
     @IBOutlet weak var searchBtn: UIButton!
-    @IBOutlet weak var flightNoField: UITextField!
     @IBOutlet weak var zoomInBtn: UIButton!
     @IBOutlet weak var zoomOutBtn: UIButton!
     
     @IBAction func searchBtnClick(_ sender: UIButton) {
+        let prompt = UIAlertController(title: "航班号", message: "请输入您需要查询的航班号，然后点击查询按钮。", preferredStyle: UIAlertController.Style.alert)
+        prompt.addAction(UIAlertAction(title: "取消", style: UIAlertAction.Style.default, handler: nil))
+        prompt.addAction(UIAlertAction(title: "查询", style: UIAlertAction.Style.default, handler: { (action) -> Void in
+            // Now do whatever you want with inputTextField (remember to unwrap the optional)
+            let flightNoField = prompt.textFields![0]
+            if !self.flightNo.isEmpty && self.flightNo != flightNoField.text! {
+                self.timer1.invalidate()
+            }
+            self.flightNo = flightNoField.text!
+            self.coordinates.removeAll()
+            //self.nextPointIndex = 0
+
+            self.getYourLoveCurrentPos()
+            self.whereYourLove()
+            
+            self.timer1 = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { (myTimer) in
+                self.getYourLoveCurrentPos()
+                self.whereYourLove()
+            }
+        }))
+        prompt.addTextField(configurationHandler: {(textField: UITextField!) in
+            textField.placeholder = "航班号"
+            //textField.isSecureTextEntry = true
+            //self.flightNoField = textField
+         })
+
+        present(prompt, animated: true, completion: nil)
+        
+        
+            /*
+        
         if flightNoField.text!.isEmpty {
             return
         }
-        if !flightNo.isEmpty && flightNo != flightNoField.text! {
-            timer1.invalidate()
-        }
-        flightNo = flightNoField.text!
-        coordinates.removeAll()
-        //self.nextPointIndex = 0
-        
-        timer1 = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { (myTimer) in
-            self.getYourLoveCurrentPos()
-            self.whereYourLove()
-        
-        }
+ */
     }
     
     /*
@@ -63,6 +85,7 @@ class ViewController: UIViewController {
         let span : MKCoordinateSpan = MKCoordinateSpan(latitudeDelta: self.mapView.region.span.latitudeDelta * 0.5, longitudeDelta: self.mapView.region.span.longitudeDelta * 0.5);
         self.mapView.setRegion(MKCoordinateRegion(center: center, span: span), animated: true)
         regionRadius *= 0.5
+        flightIconSize -= 1
     }
     
     /*
@@ -73,6 +96,7 @@ class ViewController: UIViewController {
         let span : MKCoordinateSpan = MKCoordinateSpan(latitudeDelta: self.mapView.region.span.latitudeDelta * 2, longitudeDelta: self.mapView.region.span.longitudeDelta * 2);
         self.mapView.setRegion(MKCoordinateRegion(center: center, span: span), animated: true)
         regionRadius *= 2
+        flightIconSize += 1
     }
     
     /*
@@ -252,7 +276,6 @@ class ViewController: UIViewController {
      只要坐标集发生变化，都会触发whereYourLov1e
      */
     
-    var preAnnotation : MKPointAnnotation!
     func createAnnotations() {
         // 只在最新位置显示标注点
         let annotation = MKPointAnnotation()
@@ -476,9 +499,8 @@ extension ViewController : MKMapViewDelegate {
     // 自定义标记的样式：
     func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
         let annotationView = mapView.dequeueReusableAnnotationView(withIdentifier: "annotationView") ?? MKAnnotationView()
-        let image = UIImage(systemName: "airplane")
+        let image = UIImage(systemName: "airplane")?.imageWithImage(scaledToSize:CGSize(width:flightIconSize,height:flightIconSize)).maskImageWithColor(color: UIColor.orange)
         annotationView.image = image
-        
 
         UIView.animate(
             withDuration: 0,
@@ -486,8 +508,6 @@ extension ViewController : MKMapViewDelegate {
                 annotationView.transform = CGAffineTransform(rotationAngle: CGFloat(self.degreesToRadians(degrees: self.flightDirection)))
         })
         
-        
-//            annotationView.annotation.
         return annotationView
     }
 
@@ -515,5 +535,13 @@ extension UIImage{
         UIGraphicsEndImageContext()
         
         return tintedImage!
+    }
+    
+    func imageWithImage(scaledToSize newSize:CGSize) -> UIImage{
+        UIGraphicsBeginImageContextWithOptions(newSize, false, 0.0);
+        self.draw(in: CGRect(x:0, y:0, width:newSize.width, height:newSize.height))
+        let newImage = UIGraphicsGetImageFromCurrentImageContext()
+        UIGraphicsEndImageContext()
+        return newImage!
     }
 }
